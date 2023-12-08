@@ -8,7 +8,9 @@ use DateTimeInterface;
 use DateTimeZone;
 use DeepCopy\Exception\CloneException;
 use DeepCopy\Filter\ChainableFilter;
+use DeepCopy\Filter\Doctrine\DoctrineProxyFilter;
 use DeepCopy\Filter\Filter;
+use DeepCopy\Matcher\Doctrine\DoctrineProxyMatcher;
 use DeepCopy\Matcher\Matcher;
 use DeepCopy\Reflection\ReflectionHelper;
 use DeepCopy\TypeFilter\Date\DateIntervalFilter;
@@ -61,7 +63,7 @@ class DeepCopy
     public function __construct($useCloneMethod = false)
     {
         $this->useCloneMethod = $useCloneMethod;
-
+        $this->addFilter(new ChainableFilter(new DoctrineProxyFilter()), new DoctrineProxyMatcher());
         $this->addTypeFilter(new ArrayObjectFilter($this), new TypeMatcher(ArrayObject::class));
         $this->addTypeFilter(new DateIntervalFilter(), new TypeMatcher(DateInterval::class));
         $this->addTypeFilter(new SplDoublyLinkedListFilter($this), new TypeMatcher(SplDoublyLinkedList::class));
@@ -211,6 +213,9 @@ class DeepCopy
         }
 
         foreach (ReflectionHelper::getProperties($reflectedObject) as $property) {
+            if ($property->getName() === 'lazyObjectState') {
+                continue;
+            }
             $this->copyObjectProperty($newObject, $property);
         }
 
