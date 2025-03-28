@@ -4,6 +4,7 @@ namespace DeepCopyTest;
 
 use ArrayObject;
 use DateInterval;
+use DatePeriod;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -21,6 +22,7 @@ use DeepCopy\f009;
 use DeepCopy\f011;
 use DeepCopy\f012\Suit;
 use DeepCopy\f013;
+use DeepCopy\f014;
 use DeepCopy\Filter\ChainableFilter;
 use DeepCopy\Filter\Doctrine\DoctrineProxyFilter;
 use DeepCopy\Filter\KeepFilter;
@@ -28,6 +30,7 @@ use DeepCopy\Filter\SetNullFilter;
 use DeepCopy\Matcher\Doctrine\DoctrineProxyMatcher;
 use DeepCopy\Matcher\PropertyNameMatcher;
 use DeepCopy\Matcher\PropertyTypeMatcher;
+use DeepCopy\TypeFilter\ReplaceFilter;
 use DeepCopy\TypeFilter\ShallowCopyFilter;
 use DeepCopy\TypeMatcher\TypeMatcher;
 use PHPUnit\Framework\TestCase;
@@ -157,6 +160,7 @@ class DeepCopyTest extends TestCase
         $object->d2 = new DateTimeImmutable();
         $object->dtz = new DateTimeZone('UTC');
         $object->di = new DateInterval('P2D');
+        $object->dp = new DatePeriod(new DateTime(), new DateInterval('P2D'), 3);
 
         $copy = deep_copy($object);
 
@@ -164,6 +168,7 @@ class DeepCopyTest extends TestCase
         $this->assertEqualButNotSame($object->d2, $copy->d2);
         $this->assertEqualButNotSame($object->dtz, $copy->dtz);
         $this->assertEqualButNotSame($object->di, $copy->di);
+        $this->assertEqualButNotSame($object->dp, $copy->dp);
     }
 
     /**
@@ -471,6 +476,21 @@ class DeepCopyTest extends TestCase
         $this->assertNull($copy->getFoo());
     }
 
+    public function test_it_can_prepend_type_filter()
+    {
+        $object = new f008\A('bar');
+        $deepCopy = new DeepCopy();
+        $deepCopy->addTypeFilter(new ReplaceFilter(function ($object) {
+            return new f008\A('baz');
+        }), new TypeMatcher(f008\A::class));
+        $deepCopy->prependTypeFilter(new ReplaceFilter(function ($object) {
+            return new f008\A('foo');
+        }), new TypeMatcher(f008\A::class));
+
+        $copy = $deepCopy->copy($object);
+        $this->assertEquals('foo',$copy->getFoo());
+    }
+
     /**
      * @ticket https://github.com/myclabs/DeepCopy/issues/143
      * @requires PHP 7.4
@@ -540,6 +560,23 @@ class DeepCopyTest extends TestCase
         $copy = $deepCopy->copy($object);
 
         $this->assertNotEquals($copy->getFoo(), $object->getFoo());
+    }
+
+    /**
+     * @requires PHP 8.1
+     */
+    public function test_it_can_copy_object_with_readonly_property()
+    {
+        $scalarProperties = new f014\ReadonlyScalarProperty();
+        $objectProperties = new f014\ReadonlyObjectProperty();
+
+        $deepCopy = new DeepCopy();
+
+        $scalarPropertiesCopy = $deepCopy->copy($scalarProperties);
+        $objectPropertiesCopy = $deepCopy->copy($objectProperties);
+
+        $this->assertEqualButNotSame($scalarProperties, $scalarPropertiesCopy);
+        $this->assertEqualButNotSame($objectProperties, $objectPropertiesCopy);
     }
 
     private function assertEqualButNotSame($expected, $val)
